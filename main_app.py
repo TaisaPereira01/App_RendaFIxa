@@ -92,9 +92,9 @@ class InvestimentoPreFixado(Investimento):
         """Gera um DataFrame com os resultados do investimento."""
         rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir = self.calcular_rentabilidade_liquida()
         dados = {
-            'Tipo de Investimento': ['Pré-fixado', 'Pré-fixado'],
-            'Taxa com IR (%)': [self.taxa_com_ir * 100, self.taxa_com_ir * 100],
-            'Taxa sem IR (%)': [self.taxa_sem_ir * 100, self.taxa_sem_ir * 100],
+            'Tipo de Investimento': ['Pré-fixado com IR', 'Pré-fixado Sem IR'],
+            'Taxa com IR (%)': [self.taxa_com_ir * 100, '' '''self.taxa_com_ir * 100 '''],
+            'Taxa sem IR (%)': ['''self.taxa_sem_ir * 100''' '', self.taxa_sem_ir * 100],
             'Cupom Mensal': [self.cupom_taxa_com_ir, self.cupom_taxa_sem_ir],
             'Rentabilidade Líquida': [rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir],
             'Investimento Inicial': [self.investimento_inicial, self.investimento_inicial],
@@ -194,10 +194,10 @@ class InvestimentoPosFixado(Investimento):
         """Gera um DataFrame com os resultados do investimento."""
         rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir = self.calcular_rentabilidade_liquida()
         dados = {
-            'Tipo de Investimento': ['Pós-fixado', 'Pós-fixado'],
+            'Tipo de Investimento': ['Pós-fixado com IR', 'Pós-fixado Sem IR'],
             'CDI Anual (%)': [self.cdi_anual * 100, self.cdi_anual * 100],
-            'Taxa com IR (%)': [self.taxa_com_ir * 100, self.taxa_com_ir * 100],
-            'Taxa sem IR (%)': [self.taxa_sem_ir * 100, self.taxa_sem_ir * 100],
+            'Taxa com IR (%)': [self.taxa_com_ir * 100, '' '''self.taxa_com_ir * 100'''],
+            'Taxa sem IR (%)': ['''self.taxa_sem_ir * 100''' '', self.taxa_sem_ir * 100],
             'Cupom Mensal': [self.cupom_taxa_com_ir, self.cupom_taxa_sem_ir],
             'Rentabilidade Líquida': [rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir],
             'Investimento Inicial': [self.investimento_inicial, self.investimento_inicial],
@@ -297,10 +297,10 @@ class InvestimentoInflacao(Investimento):
         """Gera um DataFrame com os resultados do investimento."""
         rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir = self.calcular_rentabilidade_liquida()
         dados = {
-            'Tipo de Investimento': ['Indexado à Inflação', 'Indexado à Inflação'],
+            'Tipo de Investimento': ['Indexado à Inflação Com IR', 'Indexado à Inflação Sem IR'],
             'Inflação Anual (%)': [self.inflacao_anual * 100, self.inflacao_anual * 100],
-            'Taxa com IR (%)': [self.taxa_com_ir * 100, self.taxa_com_ir * 100],
-            'Taxa sem IR (%)': [self.taxa_sem_ir * 100, self.taxa_sem_ir * 100],
+            'Taxa com IR (%)': [self.taxa_com_ir * 100, '' '''self.taxa_com_ir * 100'''],
+            'Taxa sem IR (%)': ['''self.taxa_sem_ir * 100''' '', self.taxa_sem_ir * 100],
             'Cupom Mensal': [self.cupom_taxa_com_ir, self.cupom_taxa_sem_ir],
             'Rentabilidade Líquida': [rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir],
             'Investimento Inicial': [self.investimento_inicial, self.investimento_inicial],
