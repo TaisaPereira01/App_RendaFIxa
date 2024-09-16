@@ -1,11 +1,9 @@
 import streamlit as st
-import pandas as pd
 import datetime as dt
+import pandas as pd
 
 class Investimento:
-    """
-    Classe base para representar um investimento.
-    """
+    """Classe base para representar um investimento."""
 
     def __init__(self, investimento_inicial, vencimento_ano):
         self.investimento_inicial = investimento_inicial
@@ -14,407 +12,237 @@ class Investimento:
         self.periodo_anos = self.vencimento_ano - self.ano_atual
         self.periodo_meses = self.periodo_anos * 12
 
-    def calcular_rentabilidade_bruta(self, *args):
-        """Calcula a rentabilidade bruta do investimento.
+    def calcular_aliquota_ir(self, meses):
+        """Calcula a alíquota de IR com base no tempo de investimento."""
+        if meses <= 6:
+            return 0.225
+        elif meses <= 12:
+            return 0.20
+        elif meses <= 24:
+            return 0.175
+        else:
+            return 0.15
 
-        Deve ser implementado pelas subclasses.
+    def calcular_rentabilidade(self, taxa_anual, tipo_juros="composto", cupom_mensal=False, tem_ir=True):
         """
-        raise NotImplementedError("Subclasses devem implementar este método.")
+        Calcula a rentabilidade do investimento.
 
-    def calcular_rentabilidade_liquida(self, *args):
-        """Calcula a rentabilidade líquida do investimento.
+        Args:
+            taxa_anual (float): Taxa de juros anual.
+            tipo_juros (str, optional): Tipo de juros ("simples" ou "composto"). Defaults to "composto".
+            cupom_mensal (bool, optional): True se houver pagamento de cupom mensal, False caso contrário. Defaults to False.
+            tem_ir (bool, optional): True se houver incidência de IR, False caso contrário. Defaults to True.
 
-        Deve ser implementado pelas subclasses.
+        Returns:
+            dict: Um dicionário contendo a rentabilidade líquida (valor) e a porcentagem de rentabilidade.
         """
-        raise NotImplementedError("Subclasses devem implementar este método.")
+        if cupom_mensal:
+            rentabilidade_liquida_total = 0
+            for mes in range(1, self.periodo_meses + 1):
+                aliquota_ir = self.calcular_aliquota_ir(mes)
+                rentabilidade_liquida_mensal = taxa_anual / 12 * (1 - aliquota_ir)
+                rentabilidade_liquida_total += self.investimento_inicial * rentabilidade_liquida_mensal
+            rentabilidade_liquida = rentabilidade_liquida_total
+        else:
+            if tipo_juros == "composto":
+                rentabilidade_bruta = (self.investimento_inicial * (1 + taxa_anual) ** self.periodo_anos) - self.investimento_inicial
+            else:  # tipo_juros == "simples"
+                rentabilidade_bruta = self.investimento_inicial * taxa_anual * self.periodo_anos
 
-    def gerar_dataframe_resultados(self):
-        """Gera um DataFrame com os resultados do investimento.
+            if tem_ir:
+                aliquota_ir = self.calcular_aliquota_ir(self.periodo_meses)
+                rentabilidade_liquida = rentabilidade_bruta * (1 - aliquota_ir)
+            else:
+                rentabilidade_liquida = rentabilidade_bruta
 
-        Deve ser implementado pelas subclasses.
-        """
-        raise NotImplementedError("Subclasses devem implementar este método.")
-
+        porcentagem_rentabilidade = (rentabilidade_liquida / self.investimento_inicial) * 100
+        return {
+            "valor": rentabilidade_liquida,
+            "porcentagem": porcentagem_rentabilidade
+        }
 
 class InvestimentoPreFixado(Investimento):
-    """
-    Classe para representar um investimento pré-fixado.
-    """
-
-    def __init__(self, investimento_inicial, vencimento_ano, taxa_com_ir, taxa_sem_ir,
-                 cupom_taxa_com_ir=False, cupom_taxa_sem_ir=False):
-        super().__init__(investimento_inicial, vencimento_ano)
-        self.taxa_com_ir = taxa_com_ir
-        self.taxa_sem_ir = taxa_sem_ir
-        self.cupom_taxa_com_ir = cupom_taxa_com_ir
-        self.cupom_taxa_sem_ir = cupom_taxa_sem_ir
-
-    def calcular_rentabilidade_bruta(self):
-        if self.cupom_taxa_com_ir or self.cupom_taxa_sem_ir:
-            return self._calcular_rentabilidade_cupom()
-        else:
-            return self._calcular_rentabilidade_composta()
-
-    def _calcular_rentabilidade_composta(self):
-        """Calcula a rentabilidade bruta com juros compostos."""
-        rentabilidade_com_ir = self.investimento_inicial * (
-            (1 + self.taxa_com_ir) ** self.periodo_anos) - self.investimento_inicial
-        rentabilidade_sem_ir = self.investimento_inicial * (
-            (1 + self.taxa_sem_ir) ** self.periodo_anos) - self.investimento_inicial
-        return rentabilidade_com_ir, rentabilidade_sem_ir
-
-    def _calcular_rentabilidade_cupom(self):
-        """Calcula a rentabilidade bruta com cupom mensal (juros simples)."""
-        rentabilidade_com_ir = self._calcular_rentabilidade_liquida_cupom(self.taxa_com_ir)
-        rentabilidade_sem_ir = self._calcular_rentabilidade_liquida_cupom(self.taxa_sem_ir)
-        return rentabilidade_com_ir, rentabilidade_sem_ir
-
-    def _calcular_rentabilidade_liquida_cupom(self, taxa):
-        """Calcula a rentabilidade líquida com cupom mensal."""
-        rentabilidade_bruta = 1
-        for aliquota, periodo in zip(self.aliquotas_ir, self.periodos_ir):
-            rentabilidade_bruta *= (
-                1 + self._calcular_rentabilidade_liquida_anual(taxa, aliquota, periodo))
-        rentabilidade_bruta -= 1
-        rentabilidade_liquida = self.investimento_inicial * (1 + rentabilidade_bruta)
-        rentabilidade_liquida -= self.investimento_inicial
-        return rentabilidade_liquida
-
-    def calcular_rentabilidade_liquida(self):
-        rentabilidade_bruta_com_ir, rentabilidade_bruta_sem_ir = self.calcular_rentabilidade_bruta()
-        ir_percent = self.calcular_aliquota_ir()
-        rentabilidade_liquida_com_ir = rentabilidade_bruta_com_ir * (
-            1 - ir_percent) if not self.cupom_taxa_com_ir else rentabilidade_bruta_com_ir
-        rentabilidade_liquida_sem_ir = rentabilidade_bruta_sem_ir if not self.cupom_taxa_sem_ir else rentabilidade_bruta_sem_ir
-        return rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir
-
-    def gerar_dataframe_resultados(self):
-        """Gera um DataFrame com os resultados do investimento."""
-        rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir = self.calcular_rentabilidade_liquida()
-        dados = {
-            'Tipo de Investimento': ['Pré-fixado com IR', 'Pré-fixado Sem IR'],
-            'Taxa com IR (%)': [self.taxa_com_ir * 100, ''],
-            'Taxa sem IR (%)': ['', self.taxa_sem_ir * 100],
-            'Cupom Mensal': [self.cupom_taxa_com_ir, self.cupom_taxa_sem_ir],
-            'Rentabilidade Líquida': [rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir],
-            'Investimento Inicial': [self.investimento_inicial, self.investimento_inicial],
-            'Vencimento': [self.vencimento_ano, self.vencimento_ano],
-        }
-        return pd.DataFrame(dados)
-
-    def calcular_aliquota_ir(self):
-        """Calcula a aliquota de IR."""
-        meses = self.periodo_meses
-        if meses <= 6:
-            return 0.225
-        elif meses <= 12:
-            return 0.20
-        elif meses <= 24:
-            return 0.175
-        else:
-            return 0.15
-
-    @property
-    def aliquotas_ir(self):
-        """Retorna a lista de aliquotas de IR."""
-        return [0.225, 0.2, 0.175, 0.15]
-
-    @property
-    def periodos_ir(self):
-        """Retorna a lista de períodos para cálculo do IR."""
-        total_meses = self.periodo_meses
-        return [min(6, total_meses), min(6, total_meses - 6),
-                min(12, total_meses - 12), total_meses - 24]
-
-    def _calcular_rentabilidade_liquida_anual(self, taxa_anual, aliquota_ir, meses):
-        """Calcula a rentabilidade líquida anual com juros simples."""
-        taxa_mensal = taxa_anual / 12
-        rendimento_liquido_mensal = taxa_mensal * (1 - aliquota_ir)
-        rentabilidade_anual = rendimento_liquido_mensal * meses
-        return rentabilidade_anual
+    """Classe para representar um investimento pré-fixado."""
+    pass
 
 class InvestimentoPosFixado(Investimento):
-    """
-    Classe para representar um investimento pós-fixado.
-    """
-
-    def __init__(self, investimento_inicial, vencimento_ano, cdi_anual, taxa_com_ir,
-                 taxa_sem_ir, cupom_taxa_com_ir=False, cupom_taxa_sem_ir=False):
-        super().__init__(investimento_inicial, vencimento_ano)
-        self.cdi_anual = cdi_anual
-        self.taxa_com_ir = taxa_com_ir
-        self.taxa_sem_ir = taxa_sem_ir
-        self.cupom_taxa_com_ir = cupom_taxa_com_ir
-        self.cupom_taxa_sem_ir = cupom_taxa_sem_ir
-
-    def calcular_rentabilidade_bruta(self):
-        if self.cupom_taxa_com_ir or self.cupom_taxa_sem_ir:
-            return self._calcular_rentabilidade_cupom()
-        else:
-            return self._calcular_rentabilidade_composta()
-
-    def _calcular_rentabilidade_composta(self):
-        """Calcula a rentabilidade bruta com juros compostos."""
-        taxa_com_ir = self.taxa_com_ir * self.cdi_anual
-        rentabilidade_com_ir = self.investimento_inicial * (
-                (1 + taxa_com_ir) ** self.periodo_anos) - self.investimento_inicial
-        taxa_sem_ir = self.taxa_sem_ir * self.cdi_anual
-        rentabilidade_sem_ir = self.investimento_inicial * (
-                (1 + taxa_sem_ir) ** self.periodo_anos) - self.investimento_inicial
-        return rentabilidade_com_ir, rentabilidade_sem_ir
-
-    def _calcular_rentabilidade_cupom(self):
-        """Calcula a rentabilidade bruta com cupom mensal (juros simples)."""
-        taxa_com_ir = self.taxa_com_ir * self.cdi_anual
-        rentabilidade_com_ir = self._calcular_rentabilidade_liquida_cupom(taxa_com_ir)
-        taxa_sem_ir = self.taxa_sem_ir * self.cdi_anual
-        rentabilidade_sem_ir = self._calcular_rentabilidade_liquida_cupom(taxa_sem_ir)
-        return rentabilidade_com_ir, rentabilidade_sem_ir
-
-    def _calcular_rentabilidade_liquida_cupom(self, taxa):
-        """Calcula a rentabilidade líquida com cupom mensal."""
-        rentabilidade_bruta = 1
-        for aliquota, periodo in zip(self.aliquotas_ir, self.periodos_ir):
-            rentabilidade_bruta *= (
-                1 + self._calcular_rentabilidade_liquida_anual(taxa, aliquota, periodo))
-        rentabilidade_bruta -= 1
-        rentabilidade_liquida = self.investimento_inicial * (1 + rentabilidade_bruta)
-        rentabilidade_liquida -= self.investimento_inicial
-        return rentabilidade_liquida
-
-    def calcular_rentabilidade_liquida(self):
-        rentabilidade_bruta_com_ir, rentabilidade_bruta_sem_ir = self.calcular_rentabilidade_bruta()
-        ir_percent = self.calcular_aliquota_ir()
-        rentabilidade_liquida_com_ir = rentabilidade_bruta_com_ir * (
-            1 - ir_percent) if not self.cupom_taxa_com_ir else rentabilidade_bruta_com_ir
-        rentabilidade_liquida_sem_ir = rentabilidade_bruta_sem_ir if not self.cupom_taxa_sem_ir else rentabilidade_bruta_sem_ir
-        return rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir
-
-    def gerar_dataframe_resultados(self):
-        """Gera um DataFrame com os resultados do investimento."""
-        rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir = self.calcular_rentabilidade_liquida()
-        dados = {
-            'Tipo de Investimento': ['Pós-fixado com IR', 'Pós-fixado Sem IR'],
-            'CDI Anual (%)': [self.cdi_anual * 100, self.cdi_anual * 100],
-            'Taxa com IR (%)': [self.taxa_com_ir * 100, ''],
-            'Taxa sem IR (%)': ['', self.taxa_sem_ir * 100],
-            'Cupom Mensal': [self.cupom_taxa_com_ir, self.cupom_taxa_sem_ir],
-            'Rentabilidade Líquida': [rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir],
-            'Investimento Inicial': [self.investimento_inicial, self.investimento_inicial],
-            'Vencimento': [self.vencimento_ano, self.vencimento_ano],
-        }
-        return pd.DataFrame(dados)
-
-    def calcular_aliquota_ir(self):
-        """Calcula a aliquota de IR."""
-        meses = self.periodo_meses
-        if meses <= 6:
-            return 0.225
-        elif meses <= 12:
-            return 0.20
-        elif meses <= 24:
-            return 0.175
-        else:
-            return 0.15
-
-    @property
-    def aliquotas_ir(self):
-        """Retorna a lista de aliquotas de IR."""
-        return [0.225, 0.2, 0.175, 0.15]
-
-    @property
-    def periodos_ir(self):
-        """Retorna a lista de períodos para cálculo do IR."""
-        total_meses = self.periodo_meses
-        return [min(6, total_meses), min(6, total_meses - 6),
-                min(12, total_meses - 12), total_meses - 24]
-
-    def _calcular_rentabilidade_liquida_anual(self, taxa_anual, aliquota_ir, meses):
-        """Calcula a rentabilidade líquida anual com juros simples."""
-        taxa_mensal = taxa_anual / 12
-        rendimento_liquido_mensal = taxa_mensal * (1 - aliquota_ir)
-        rentabilidade_anual = rendimento_liquido_mensal * meses
-        return rentabilidade_anual
+    """Classe para representar um investimento pós-fixado."""
+    def calcular_rentabilidade(self, taxa_anual, tipo_juros="composto", cupom_mensal=False, tem_ir=True):
+        """
+        Para investimentos pós-fixados, a taxa_anual recebida já deve ser a taxa efetiva,
+        calculada com base no CDI e no percentual do CDI do investimento.
+        """
+        return super().calcular_rentabilidade(taxa_anual, tipo_juros, cupom_mensal, tem_ir)
 
 class InvestimentoInflacao(Investimento):
-    """
-    Classe para representar um investimento indexado à inflação.
-    """
+    """Classe para representar um investimento indexado à inflação."""
+    def calcular_rentabilidade(self, taxa_anual, tipo_juros="composto", cupom_mensal=False, tem_ir=True):
+        """
+        Para investimentos indexados à inflação, a taxa_anual recebida já deve ser a taxa efetiva,
+        calculada com base na inflação e na taxa do investimento.
+        """
+        return super().calcular_rentabilidade(taxa_anual, tipo_juros, cupom_mensal, tem_ir)
 
-    def __init__(self, investimento_inicial, vencimento_ano, inflacao_anual, taxa_com_ir,
-                 taxa_sem_ir, cupom_taxa_com_ir=False, cupom_taxa_sem_ir=False):
-        super().__init__(investimento_inicial, vencimento_ano)
-        self.inflacao_anual = inflacao_anual
-        self.taxa_com_ir = taxa_com_ir
-        self.taxa_sem_ir = taxa_sem_ir
-        self.cupom_taxa_com_ir = cupom_taxa_com_ir
-        self.cupom_taxa_sem_ir = cupom_taxa_sem_ir
+def exibir_resultados(resultados, periodo_anos, investimento_inicial, cupom_mensal_com_ir, cupom_mensal_sem_ir, taxa_com_ir, taxa_sem_ir):
+    """Exibe os resultados em um DataFrame."""
 
-    def calcular_rentabilidade_bruta(self):
-        if self.cupom_taxa_com_ir or self.cupom_taxa_sem_ir:
-            return self._calcular_rentabilidade_cupom()
-        else:
-            return self._calcular_rentabilidade_composta()
+    resultados_df = pd.DataFrame({
+        "Investimento Inicial": [
+            f"R$ {investimento_inicial:,.2f}", 
+            f"R$ {investimento_inicial:,.2f}"
+        ],
+        "Vencimento (anos)": [periodo_anos] * 2,
+        "Cupom Mensal": [cupom_mensal_com_ir, cupom_mensal_sem_ir], # Corrigido: usa os valores corretos de cupom mensal
+        "Taxa": [f"{taxa_com_ir:.2%}", f"{taxa_sem_ir:.2%}"],
+        "Rentabilidade Líquida": [
+            f"R$ {resultados['com_ir']['valor']:,.2f}", 
+            f"R$ {resultados['sem_ir']['valor']:,.2f}"
+        ],
+        "Rentabilidade Total (%)": [
+            f"{resultados['com_ir']['porcentagem']:.2f}%", 
+            f"{resultados['sem_ir']['porcentagem']:.2f}%"
+        ]
+    }, index=['Com IR', 'Sem IR'])
+    st.table(resultados_df)
+    return resultados_df 
 
-    def _calcular_rentabilidade_composta(self):
-        """Calcula a rentabilidade bruta com juros compostos."""
-        taxa_com_ir = self.taxa_com_ir + self.inflacao_anual
-        rentabilidade_com_ir = self.investimento_inicial * (
-                (1 + taxa_com_ir) ** self.periodo_anos) - self.investimento_inicial
-        taxa_sem_ir = self.taxa_sem_ir + self.inflacao_anual
-        rentabilidade_sem_ir = self.investimento_inicial * (
-                (1 + taxa_sem_ir) ** self.periodo_anos) - self.investimento_inicial
-        return rentabilidade_com_ir, rentabilidade_sem_ir
+def exibir_pre_fixado(investimento):
+    """Exibe os resultados para investimento pré-fixado."""
+    st.title('Pré-fixado')
 
-    def _calcular_rentabilidade_cupom(self):
-        """Calcula a rentabilidade bruta com cupom mensal (juros simples)."""
-        taxa_com_ir = self.taxa_com_ir + self.inflacao_anual
-        rentabilidade_com_ir = self._calcular_rentabilidade_liquida_cupom(taxa_com_ir)
-        taxa_sem_ir = self.taxa_sem_ir + self.inflacao_anual
-        rentabilidade_sem_ir = self._calcular_rentabilidade_liquida_cupom(taxa_sem_ir)
-        return rentabilidade_com_ir, rentabilidade_sem_ir
+    with st.form(key='Pre'):
+        taxa_com_ir = st.number_input('Taxa com IR (%) (CDB)', value=15.00) / 100
+        cupom_mensal_com_ir = st.checkbox('Com Cupom Mensal', value=False, key='cupom_mensal_com_ir')
+        taxa_sem_ir = st.number_input('Taxa sem IR (%) (LCI/ LCA)', value=10.50) / 100
+        cupom_mensal_sem_ir = st.checkbox('Com Cupom Mensal?', value=False, key='cupom_mensal_sem_ir')
+        st.form_submit_button('Calcular')
 
-    def _calcular_rentabilidade_liquida_cupom(self, taxa):
-        """Calcula a rentabilidade líquida com cupom mensal."""
-        rentabilidade_bruta = 1
-        for aliquota, periodo in zip(self.aliquotas_ir, self.periodos_ir):
-            rentabilidade_bruta *= (
-                1 + self._calcular_rentabilidade_liquida_anual(taxa, aliquota, periodo))
-        rentabilidade_bruta -= 1
-        rentabilidade_liquida = self.investimento_inicial * (1 + rentabilidade_bruta)
-        rentabilidade_liquida -= self.investimento_inicial
-        return rentabilidade_liquida
-
-    def calcular_rentabilidade_liquida(self):
-        rentabilidade_bruta_com_ir, rentabilidade_bruta_sem_ir = self.calcular_rentabilidade_bruta()
-        ir_percent = self.calcular_aliquota_ir()
-        rentabilidade_liquida_com_ir = rentabilidade_bruta_com_ir * (
-            1 - ir_percent) if not self.cupom_taxa_com_ir else rentabilidade_bruta_com_ir
-        rentabilidade_liquida_sem_ir = rentabilidade_bruta_sem_ir if not self.cupom_taxa_sem_ir else rentabilidade_bruta_sem_ir
-        return rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir
-
-    def gerar_dataframe_resultados(self):
-        """Gera um DataFrame com os resultados do investimento."""
-        rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir = self.calcular_rentabilidade_liquida()
-        dados = {
-            'Tipo de Investimento': ['Indexado à Inflação Com IR', 'Indexado à Inflação Sem IR'],
-            'Inflação Anual (%)': [self.inflacao_anual * 100, self.inflacao_anual * 100],
-            'Taxa com IR (%)': [self.taxa_com_ir * 100, ''],
-            'Taxa sem IR (%)': ['', self.taxa_sem_ir * 100],
-            'Cupom Mensal': [self.cupom_taxa_com_ir, self.cupom_taxa_sem_ir],
-            'Rentabilidade Líquida': [rentabilidade_liquida_com_ir, rentabilidade_liquida_sem_ir],
-            'Investimento Inicial': [self.investimento_inicial, self.investimento_inicial],
-            'Vencimento': [self.vencimento_ano, self.vencimento_ano],
+    if taxa_com_ir != 0 or taxa_sem_ir != 0:
+        resultados = {
+            "com_ir": investimento.calcular_rentabilidade(
+                taxa_com_ir, cupom_mensal=cupom_mensal_com_ir, tem_ir=True
+            ),
+            "sem_ir": investimento.calcular_rentabilidade(
+                taxa_sem_ir, cupom_mensal=cupom_mensal_sem_ir, tem_ir=False
+            )
         }
-        return pd.DataFrame(dados)
+        return exibir_resultados(resultados, investimento.periodo_anos, investimento.investimento_inicial,
+                         cupom_mensal_com_ir, cupom_mensal_sem_ir, taxa_com_ir, taxa_sem_ir)
 
-    def calcular_aliquota_ir(self):
-        """Calcula a aliquota de IR."""
-        meses = self.periodo_meses
-        if meses <= 6:
-            return 0.225
-        elif meses <= 12:
-            return 0.20
-        elif meses <= 24:
-            return 0.175
-        else:
-            return 0.15
+def exibir_pos_fixado(investimento):
+    """Exibe os resultados para investimento pós-fixado."""
+    st.title('Pós Fixado')
 
-    @property
-    def aliquotas_ir(self):
-        """Retorna a lista de aliquotas de IR."""
-        return [0.225, 0.2, 0.175, 0.15]
+    with st.form(key='Pos'):
+        cdi_anual = st.number_input('CDI Anual (%)', value=11.50) / 100
+        percentual_cdi_com_ir = st.number_input('Percentual do CDI com IR (%) (CDB)', value=125.00) / 100
+        cupom_mensal_com_ir = st.checkbox('Com Cupom Mensal', value=False, key='cupom_mensal_com_ir_pos')
+        percentual_cdi_sem_ir = st.number_input('Percentual do CDI sem IR (%) (LCI/ LCA)', value=95.00) / 100
+        cupom_mensal_sem_ir = st.checkbox('Com Cupom Mensal?', value=False, key='cupom_mensal_sem_ir_pos')
+        st.form_submit_button('Calcular')
 
-    @property
-    def periodos_ir(self):
-        """Retorna a lista de períodos para cálculo do IR."""
-        total_meses = self.periodo_meses
-        return [min(6, total_meses), min(6, total_meses - 6),
-                min(12, total_meses - 12), total_meses - 24]
+    if cdi_anual != 0 and (percentual_cdi_com_ir != 0 or percentual_cdi_sem_ir != 0):
+        taxa_com_ir = cdi_anual * percentual_cdi_com_ir
+        taxa_sem_ir = cdi_anual * percentual_cdi_sem_ir
+        resultados = {
+            "com_ir": investimento.calcular_rentabilidade(
+                taxa_com_ir, cupom_mensal=cupom_mensal_com_ir, tem_ir=True
+            ),
+            "sem_ir": investimento.calcular_rentabilidade(
+                taxa_sem_ir, cupom_mensal=cupom_mensal_sem_ir, tem_ir=False
+            )
+        }
+        return exibir_resultados(resultados, investimento.periodo_anos, investimento.investimento_inicial, 
+                         cupom_mensal_com_ir, cupom_mensal_sem_ir, taxa_com_ir, taxa_sem_ir)
 
-    def _calcular_rentabilidade_liquida_anual(self, taxa_anual, aliquota_ir, meses):
-        """Calcula a rentabilidade líquida anual com juros simples."""
-        taxa_mensal = taxa_anual / 12
-        rendimento_liquido_mensal = taxa_mensal * (1 - aliquota_ir)
-        rentabilidade_anual = rendimento_liquido_mensal * meses
-        return rentabilidade_anual
+def exibir_inflacao(investimento):
+    """Exibe os resultados para investimento indexado à inflação."""
+    st.title('Inflação')
 
-def exibir_resultados(investimento):
-    """Exibe os resultados do investimento em um DataFrame."""
-    df = investimento.gerar_dataframe_resultados()
-    st.dataframe(df.style.format({'Rentabilidade Líquida': "R$ {:,.2f}"}))
+    with st.form(key='Inf'):
+        inflacao_anual = st.number_input('Inflação Anual (%)', value=4.50) / 100
+        taxa_com_ir = st.number_input('Taxa com IR (%) (CDB)', value=6.80) / 100
+        cupom_mensal_com_ir = st.checkbox('Com Cupom Mensal', value=False, key='cupom_mensal_com_ir_inf')
+        taxa_sem_ir = st.number_input('Taxa sem IR (%) (LCI/ LCA)', value=5.30) / 100
+        cupom_mensal_sem_ir = st.checkbox('Com Cupom Mensal?', value=False, key='cupom_mensal_sem_ir_inf')
+        st.form_submit_button('Calcular')
 
+    if inflacao_anual != 0 and (taxa_com_ir != 0 or taxa_sem_ir != 0):
+        taxa_efetiva_com_ir = inflacao_anual + taxa_com_ir
+        taxa_efetiva_sem_ir = inflacao_anual + taxa_sem_ir
 
+        resultados = {
+            "com_ir": investimento.calcular_rentabilidade(
+                taxa_efetiva_com_ir, cupom_mensal=cupom_mensal_com_ir, tem_ir=True
+            ),
+            "sem_ir": investimento.calcular_rentabilidade(
+                taxa_efetiva_sem_ir, cupom_mensal=cupom_mensal_sem_ir, tem_ir=False
+            )
+        }
+        return exibir_resultados(resultados, investimento.periodo_anos, investimento.investimento_inicial, 
+                         cupom_mensal_com_ir, cupom_mensal_sem_ir, taxa_com_ir, taxa_sem_ir)
+
+def exibir_resumo(resultados_investimentos):
+    """Exibe um resumo dos investimentos."""
+    st.title('Resumo')
+
+    if resultados_investimentos:
+        resumo_data = []
+        for tipo_investimento, df in resultados_investimentos.items():
+            for index, row in df.iterrows():
+                resumo_data.append([
+                    tipo_investimento,
+                    row['Investimento Inicial'],
+                    row['Vencimento'],
+                    row['Cupom Mensal'],
+                    row['Taxa'],
+                    row['Rentabilidade Líquida'],
+                    row['Rentabilidade Total (%)']
+                ])
+
+        resumo_df = pd.DataFrame(resumo_data, columns=[
+            "Tipo de Investimento", 
+            "Investimento Inicial", 
+            "Vencimento", 
+            "Cupom Mensal", 
+            "Taxa",
+            "Rentabilidade Líquida",
+            "Rentabilidade Total (%)"
+        ])
+        st.table(resumo_df)
+    else:
+        st.write("Nenhum resultado de investimento disponível.")
+
+# Função principal da aplicação
 def main():
-    """Função principal do aplicativo."""
-    st.sidebar.title('Comparador Renda Fixa')
+    """Função principal que gerencia a aplicação."""
+    st.sidebar.title('Comparador de Renda Fixa')
     st.sidebar.markdown('---')
     st.sidebar.subheader('Dados de Entrada')
     investimento_inicial = st.sidebar.number_input('Valor Investido', value=50000)
-    vencimento_ano = st.sidebar.number_input('Vencimento', value=2026)
+    vencimento_ano = st.sidebar.number_input('Ano de Vencimento', value=2026)
     st.sidebar.markdown('---')
 
     lista_menu = ['Pré-fixado', 'Pós Fixado', 'Inflação', 'Resumo']
     escolha = st.sidebar.radio('Escolha a opção', lista_menu)
 
+    # Dicionário para armazenar os resultados dos investimentos, agora com DataFrames
+    resultados_investimentos = {} 
+
+    # Criar as instâncias das classes de investimento fora do if/else
+    investimento_pre = InvestimentoPreFixado(investimento_inicial, vencimento_ano)
+    investimento_pos = InvestimentoPosFixado(investimento_inicial, vencimento_ano)
+    investimento_inf = InvestimentoInflacao(investimento_inicial, vencimento_ano)
+
     if escolha == 'Pré-fixado':
-        st.title('Pré-fixado')
-        with st.form(key='Pre'):
-            taxa_com_ir = st.number_input(
-                'Taxa com IR (%) (CDB)', value=15.00) / 100
-            cupom_taxa_com_ir = st.checkbox(
-                'Com Cupom Mensal', value=False, key='Inp_pre_taxa_com_ir')
-            taxa_sem_ir = st.number_input(
-                'Taxa sem IR (%) (LCI/ LCA)', value=10.50) / 100
-            cupom_taxa_sem_ir = st.checkbox(
-                'Com Cupom Mensal?', value=False, key='Inp_pre_taxa_sem_ir')
-            st.form_submit_button('Calcular')
-        investimento = InvestimentoPreFixado(
-            investimento_inicial, vencimento_ano, taxa_com_ir, taxa_sem_ir,
-            cupom_taxa_com_ir, cupom_taxa_sem_ir)
-        exibir_resultados(investimento)
-
+        resultados_investimentos["Pré-fixado"] = exibir_pre_fixado(investimento_pre)
     elif escolha == 'Pós Fixado':
-        st.title('Pós Fixado')
-        with st.form(key='Pos'):
-            cdi_anual = st.number_input(
-                'CDI Anual (%)', value=11.5) / 100
-            taxa_com_ir = st.number_input(
-                'Taxa com IR (%) (CDB)', value=125.0) / 100
-            cupom_taxa_com_ir = st.checkbox(
-                'Com Cupom Mensal', value=False, key='Inp_pos_taxa_com_ir')
-            taxa_sem_ir = st.number_input(
-                'Taxa sem IR (%) (LCI/ LCA)', value=95.0) / 100
-            cupom_taxa_sem_ir = st.checkbox(
-                'Com Cupom Mensal', value=False, key='Inp_pos_taxa_sem_ir')
-            st.form_submit_button('Calcular')
-        investimento = InvestimentoPosFixado(
-            investimento_inicial, vencimento_ano, cdi_anual, taxa_com_ir,
-            taxa_sem_ir, cupom_taxa_com_ir, cupom_taxa_sem_ir)
-        exibir_resultados(investimento)
-
+        resultados_investimentos["Pós Fixado"] = exibir_pos_fixado(investimento_pos)
     elif escolha == 'Inflação':
-        st.title('Inflação')
-        with st.form(key='Inflacao'):
-            inflacao_anual = st.number_input(
-                'Inflação Anual (%)', value=4.5) / 100
-            taxa_com_ir = st.number_input(
-                'Taxa com IR (%) (CDB)', value=6.8) / 100
-            cupom_taxa_com_ir = st.checkbox(
-                'Com Cupom Mensal', value=False, key='Inp_inflacao_taxa_com_ir')
-            taxa_sem_ir = st.number_input(
-                'Taxa sem IR (%) (LCI/ LCA)', value=5.3) / 100
-            cupom_taxa_sem_ir = st.checkbox(
-                'Com Cupom Mensal', value=False, key='Inp_inflacao_taxa_sem_ir')
-            st.form_submit_button('Calcular')
-        investimento = InvestimentoInflacao(
-            investimento_inicial, vencimento_ano, inflacao_anual, taxa_com_ir,
-            taxa_sem_ir, cupom_taxa_com_ir, cupom_taxa_sem_ir)
-        exibir_resultados(investimento)
-
+        resultados_investimentos["Inflação"] = exibir_inflacao(investimento_inf)
     elif escolha == 'Resumo':
-        st.title('Resumo')
+        exibir_resumo(resultados_investimentos)
 
-
-if __name__ == "__main__":
+# Inicia a aplicação
+if __name__ == '__main__':
     main()
